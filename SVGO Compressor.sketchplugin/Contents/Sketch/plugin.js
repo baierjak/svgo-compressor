@@ -15803,10 +15803,31 @@ module.exports = require("./lib/_stream_writable.js")
       // defer onattribute events until all attributes have been seen
       // so any new bindings can take effect. preserve attribute order
       // so deferred events can be emitted in document order
+      var attrSplit = parser.attribName.split('-');
+      if(attrSplit.length > 1){
+        log('Sketch logger 2 - ' + [attrSplit[0], attrSplit[1].charAt(0).toUpperCase() + attrSplit[1].slice(1)].join(''));
+        parser.attribName = [attrSplit[0], attrSplit[1].charAt(0).toUpperCase() + attrSplit[1].slice(1)].join('');
+      }
+      if(parser.attribName === 'fill' || parser.attribName === 'stroke') {
+        if(parser.attribValue !== 'none')
+            parser.attribValue = "ackee-color";
+      }
+
       parser.attribList.push([parser.attribName, parser.attribValue])
     } else {
+      var attrSplit = parser.attribName.split('-');
+      if(attrSplit.length > 1){
+        log('Sketch logger 2 - ' + [attrSplit[0], attrSplit[1].charAt(0).toUpperCase() + attrSplit[1].slice(1)].join(''));
+        parser.attribName = [attrSplit[0], attrSplit[1].charAt(0).toUpperCase() + attrSplit[1].slice(1)].join('');
+      }
+      if(parser.attribName === 'fill' || parser.attribName === 'stroke') {
+        if(parser.attribValue !== 'none')
+            parser.attribValue = "ackee-color";
+      }
+
       // in non-xmlns mode, we can emit the event right away
       parser.tag.attributes[parser.attribName] = parser.attribValue
+
       emitNode(parser, 'onattribute', {
         name: parser.attribName,
         value: parser.attribValue
@@ -19981,6 +20002,55 @@ SVGO.prototype.optimize = function(svgstr, callback) {
 
     _this._optimizeOnce(svgstr, optimizeOnceCallback);
 
+};
+
+SVGO.prototype.createReactComponent = function(svgstr, callback) {
+    log("Sketch logger 2 - " + svgstr);
+    
+    svgstr = svgstr.replace(new RegExp('xmlns:xlink', 'g'), 'xmlnsXlink')
+        .replace(new RegExp('xlink:href', 'g'), 'xlinkHref')
+        .replace(new RegExp('xlink:show', 'g'), 'xlinkShow')
+        .replace(new RegExp('xlink:actuate', 'g'), 'xlinkActuate')
+        .replace(new RegExp('xlink:type', 'g'), 'xlinkType')
+        .replace(new RegExp('xlink:role', 'g'), 'xlinkRole')
+        .replace(new RegExp('xlink:arcrole', 'g'), 'xlinkArcrole')
+        .replace(new RegExp('xlink:title', 'g'), 'xlinkTitle')
+
+        .replace(new RegExp('<', 'g'), ' <')
+        .replace(new RegExp('"ackee-color"', 'g'), '{this.state.isHover && hoverColor ? hoverColor : color}')
+        .replace(new RegExp('<svg', 'g'), '<svg onMouseEnter={() => this.setState({ isHover: true })} onMouseLeave={() => this.setState({ isHover: false })} ');
+
+    var space = "           ";
+
+    return "import React, { Component } from 'react';" +
+    "\nimport PropTypes from 'prop-types';"+
+    "\n" +
+    "\nexport default class Icon extends Component {" +
+    "\n    static propTypes = {" +
+    "\n        color: PropTypes.string.isRequired," +
+    "\n        hoverColor: PropTypes.string.isRequired," +
+    "\n    };" +
+    "\n" +
+    "\n    static defaultProps = {" +
+    "\n        color: '#FF00FF'," +
+    "\n        hoverColor: '#FF00FF'," +
+    "\n    };" +
+    "\n" +
+    "\n    constructor(props) {" +
+    "\n        super(props);" +
+    "\n        this.state = {" +
+    "\n            isHover: false," +
+    "\n        };" +
+    "\n    }" +
+    "\n" +
+    "\n    render() {" +
+    "\n        const { color, hoverColor } = this.props;" +
+    "\n        return (\n" +
+                    space + " " + svgstr.split("\n").join("\n"+space).trim() +
+    "\n        );" +
+    "\n    }" +
+    "\n}" + 
+    "\n";    
 };
 
 SVGO.prototype._optimizeOnce = function(svgstr, callback) {
@@ -30141,7 +30211,8 @@ var SketchPlugin = exports.SketchPlugin = {
               }
               svgCompressor.optimize(svgString, function (result) {
                 compressedTotalSize += result.data.length;
-                NSString.stringWithString(result.data).writeToFile_atomically_encoding_error(currentFile, true, NSUTF8StringEncoding, nil);
+                var componentResult = svgCompressor.createReactComponent(result.data);
+                NSString.stringWithString(componentResult).writeToFile_atomically_encoding_error(currentFile, true, NSUTF8StringEncoding, nil);
               });
             }
             var compressionRatio = (100 - compressedTotalSize * 100 / originalTotalSize).toFixed(2);
